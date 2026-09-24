@@ -16,9 +16,10 @@ do Google do usuário (CORS) e teria que baixar e converter o vídeo inteiro.
 
 ## Instalar (modo desenvolvedor)
 
-1. Baixe este repositório (ou o zip gerado pela CI em *Actions*).
+1. Baixe a última versão: [baixar-audio-drive.zip](https://github.com/burguela/baixar-audio-drive/releases/latest/download/baixar-audio-drive.zip)
+   e descompacte numa pasta.
 2. Abra `chrome://extensions` e ligue **Modo do desenvolvedor**.
-3. Clique em **Carregar sem compactação** e escolha a pasta `extensao/`.
+3. Clique em **Carregar sem compactação** e escolha essa pasta (a que tem o `manifest.json`).
 
 Para distribuir sem modo desenvolvedor, publique o zip de `npm run empacotar`
 na Chrome Web Store como "Não listada".
@@ -55,7 +56,15 @@ npm run test:e2e                  # ponta a ponta
 npm run empacotar                 # zip para a Chrome Web Store
 ```
 
-A CI (`.github/workflows/ci.yml`) roda os dois testes e publica o zip como artefato.
+A CI (`.github/workflows/ci.yml`) roda os dois testes a cada push.
+
+### Publicar uma versão
+
+1. Atualize `version` em `extensao/manifest.json` e faça commit.
+2. Crie e envie a tag com o mesmo número: `git tag v1.0.1 && git push origin v1.0.1`.
+
+O workflow `release.yml` roda os testes, gera o zip e cria a release no GitHub.
+O link "última versão" do README passa a apontar para ela automaticamente.
 
 ## Limitações
 

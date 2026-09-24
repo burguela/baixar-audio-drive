@@ -1,0 +1,40 @@
+name: Release
+
+# Para publicar: atualize "version" em extensao/manifest.json, faça commit e
+# envie uma tag com o mesmo número (ex.: git tag v1.0.1 && git push origin v1.0.1).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Confere se a tag bate com a versão do manifest
+        run: |
+          VERSAO=$(node -p "require('./extensao/manifest.json').version")
+          if [ "v$VERSAO" != "$GITHUB_REF_NAME" ]; then
+            echo "A tag $GITHUB_REF_NAME não bate com a versão $VERSAO do manifest.json"
+            exit 1
+          fi
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run empacotar
+      - name: Publica a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Nome fixo para o link .../releases/latest/download/baixar-audio-drive.zip
+          cp dist/baixar-audio-drive-*.zip dist/baixar-audio-drive.zip
+          gh release create "$GITHUB_REF_NAME" dist/baixar-audio-drive.zip \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Baixe **baixar-audio-drive.zip**, descompacte numa pasta e, em chrome://extensions (Modo do desenvolvedor), clique em **Carregar sem compactação** e escolha essa pasta."
