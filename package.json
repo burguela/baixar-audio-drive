@@ -1,0 +1,15 @@
+{
+  "name": "baixar-audio-drive",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Extensão de navegador que baixa só o áudio de vídeos do Google Drive.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/streams.test.mjs",
+    "test:e2e": "node --test tests/e2e.test.mjs",
+    "empacotar": "sh scripts/empacotar.sh"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}

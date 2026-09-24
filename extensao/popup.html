@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Baixar áudio do Drive</title>
+<style>
+  :root { color-scheme: light dark; --azul: #1a73e8; --cinza: #5f6368; --erro: #d93025; }
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 0; padding: 16px; width: 320px; }
+  h1 { font-size: 15px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  .titulo { font-weight: 600; word-break: break-word; }
+  .dica { color: var(--cinza); font-size: 13px; }
+  .erro { color: var(--erro); }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+  #baixar { background: var(--azul); color: #fff; width: 100%; font-weight: 600; }
+  #baixar:disabled { opacity: .6; cursor: default; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--cinza); font-size: 13px; }
+  .opcao { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; }
+  .opcao button { padding: 4px 10px; background: transparent; border: 1px solid var(--cinza); color: inherit; }
+</style>
+</head>
+<body>
+  <h1>Baixar áudio do Drive</h1>
+  <div id="conteudo"><p class="dica">Carregando…</p></div>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
