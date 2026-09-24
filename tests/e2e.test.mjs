@@ -3,26 +3,30 @@
 // captura o áudio e baixa o arquivo inteiro usando os cookies da sessão.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import http from "node:http";
+import https from "node:https";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const EXT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../extensao");
+const AQUI = path.dirname(fileURLToPath(import.meta.url));
+const EXT = path.resolve(AQUI, "../extensao");
 const TAMANHO = 3_500_000;
 const HOST_PLAYER = "r1---sn-test.c.drive.google.com";
 
 function servidorFalso() {
   const pedidos = [];
   const audio = Buffer.alloc(TAMANHO, 7);
-  const server = http.createServer((req, res) => {
-    const u = new URL(req.url, "http://" + req.headers.host);
+  // O Chromium força HTTPS em google.com (HSTS), então o servidor falso usa um
+  // certificado autoassinado só de teste.
+  const cert = { key: fs.readFileSync(path.join(AQUI, "cert-teste.key")), cert: fs.readFileSync(path.join(AQUI, "cert-teste.pem")) };
+  const server = https.createServer(cert, (req, res) => {
+    const u = new URL(req.url, "https://" + req.headers.host);
     if (u.pathname.startsWith("/file/")) {
       res.setHeader("content-type", "text/html; charset=utf-8");
       return res.end(`<title>Webinario TUBERCULOSE.mp4 - Google Drive</title><script>
-        const base = "http://${HOST_PLAYER}/videoplayback?id=abc&sig=xyz";
+        const base = "https://${HOST_PLAYER}/videoplayback?id=abc&sig=xyz";
         fetch(base + "&itag=137&mime=video%2Fmp4&clen=99999999&range=0-999&rn=1", { mode: "no-cors" });
         fetch(base + "&itag=140&mime=audio%2Fmp4&clen=${TAMANHO}&range=0-999&rn=2&rbuf=0", { mode: "no-cors" });
       </script>`);
@@ -51,12 +55,14 @@ test("captura o áudio do player e baixa o arquivo completo", async () => {
     headless: false,
     executablePath: process.env.CHROMIUM_PATH || undefined,
     acceptDownloads: true,
+    ignoreHTTPSErrors: true,
     args: [
       "--headless=new",
       `--disable-extensions-except=${EXT}`,
       `--load-extension=${EXT}`,
       `--host-resolver-rules=MAP drive.google.com 127.0.0.1:${porta}, MAP ${HOST_PLAYER} 127.0.0.1:${porta}`,
       "--no-proxy-server",
+      "--ignore-certificate-errors",
     ],
   });
   try {
@@ -66,7 +72,7 @@ test("captura o áudio do player e baixa o arquivo completo", async () => {
 
     await ctx.addCookies([{ name: "DRIVE_STREAM", value: "sessao123", domain: ".drive.google.com", path: "/" }]);
     const pagina = await ctx.newPage();
-    await pagina.goto("http://drive.google.com/file/d/1mkz/view");
+    await pagina.goto("https://drive.google.com/file/d/1mkz/view");
     await pagina.waitForTimeout(1500);
 
     const tabId = await sw.evaluate(async () => (await chrome.tabs.query({ url: "*://drive.google.com/*" }))[0].id);
