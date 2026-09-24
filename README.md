@@ -60,10 +60,9 @@ A CI (`.github/workflows/ci.yml`) roda os dois testes a cada push.
 
 ### Publicar uma versão
 
-1. Atualize `version` em `extensao/manifest.json` e faça commit.
-2. Crie e envie a tag com o mesmo número: `git tag v1.0.1 && git push origin v1.0.1`.
-
-O workflow `release.yml` roda os testes, gera o zip e cria a release no GitHub.
+Aumente `version` em `extensao/manifest.json` (ex.: `1.0.1`) e envie para a `main`.
+O workflow `release.yml` vê que ainda não existe release com esse número, roda os
+testes, gera o zip e cria a release `v1.0.1` no GitHub.
 O link "última versão" do README passa a apontar para ela automaticamente.
 
 ## Limitações

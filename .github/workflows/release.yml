@@ -1,10 +1,12 @@
 name: Release
 
-# Para publicar: atualize "version" em extensao/manifest.json, faça commit e
-# envie uma tag com o mesmo número (ex.: git tag v1.0.1 && git push origin v1.0.1).
+# Para publicar uma versão nova: aumente "version" em extensao/manifest.json e
+# envie para a main. Se ainda não existe release com esse número, este workflow
+# roda os testes, gera o zip e cria a release (com a tag vX.Y.Z).
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,24 +19,36 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: Confere se a tag bate com a versão do manifest
-        run: |
-          VERSAO=$(node -p "require('./extensao/manifest.json').version")
-          if [ "v$VERSAO" != "$GITHUB_REF_NAME" ]; then
-            echo "A tag $GITHUB_REF_NAME não bate com a versão $VERSAO do manifest.json"
-            exit 1
-          fi
-      - run: npm install
-      - run: npx playwright install --with-deps chromium
-      - run: npm test
-      - run: npm run test:e2e
-      - run: npm run empacotar
-      - name: Publica a release
+      - name: Versão já publicada?
+        id: versao
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          TAG="v$(node -p "require('./extensao/manifest.json').version")"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "A release $TAG já existe; nada a fazer."
+            echo "nova=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "nova=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.versao.outputs.nova == 'true'
+        run: npm install
+      - if: steps.versao.outputs.nova == 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.versao.outputs.nova == 'true'
+        run: npm test && npm run test:e2e
+      - if: steps.versao.outputs.nova == 'true'
+        run: npm run empacotar
+      - name: Publica a release
+        if: steps.versao.outputs.nova == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.versao.outputs.tag }}
+        run: |
           # Nome fixo para o link .../releases/latest/download/baixar-audio-drive.zip
           cp dist/baixar-audio-drive-*.zip dist/baixar-audio-drive.zip
-          gh release create "$GITHUB_REF_NAME" dist/baixar-audio-drive.zip \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$TAG" dist/baixar-audio-drive.zip \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
             --notes "Baixe **baixar-audio-drive.zip**, descompacte numa pasta e, em chrome://extensions (Modo do desenvolvedor), clique em **Carregar sem compactação** e escolha essa pasta."
