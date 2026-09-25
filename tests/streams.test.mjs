@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lerStream, urlCompleta, nomeDoArquivo, tamanhoLegivel } from "../extensao/streams.js";
+import { lerStream, urlCompleta, nomeDoArquivo, nomeSemAcentos, tamanhoLegivel } from "../extensao/streams.js";
 
 const BASE = "https://r1---sn-abc.c.drive.google.com/videoplayback?id=x&sig=y";
 
@@ -35,4 +35,9 @@ test("tamanho legível", () => {
   assert.equal(tamanhoLegivel(null), "tamanho desconhecido");
   assert.equal(tamanhoLegivel(85 * 1024 * 1024), "85 MB");
   assert.equal(tamanhoLegivel(1.5 * 1024 ** 3), "1.5 GB");
+});
+
+test("nome sem acentos para sistemas que recusam", () => {
+  assert.equal(nomeSemAcentos("Webinários do IIERibas - Ações.m4a"), "Webinarios do IIERibas - Acoes.m4a");
+  assert.equal(nomeSemAcentos("Aula 🎧.m4a"), "Aula __.m4a");
 });

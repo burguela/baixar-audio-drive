@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Baixar áudio do Drive",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Baixa só o áudio de vídeos do Google Drive que você já consegue assistir.",
   "permissions": ["webRequest", "downloads", "storage", "activeTab"],
   "host_permissions": [

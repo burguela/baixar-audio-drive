@@ -15,6 +15,15 @@ const EXT = path.resolve(AQUI, "../extensao");
 const TAMANHO = 3_500_000;
 const HOST_PLAYER = "r1---sn-test.c.drive.google.com";
 
+// Espera a condição ficar verdadeira (até 15 s), em vez de pausas fixas.
+async function ate(condicao) {
+  for (let i = 0; i < 75; i++) {
+    if (await condicao()) return;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  throw new Error("condição não aconteceu a tempo");
+}
+
 function servidorFalso() {
   const pedidos = [];
   const audio = Buffer.alloc(TAMANHO, 7);
@@ -25,7 +34,7 @@ function servidorFalso() {
     const u = new URL(req.url, "https://" + req.headers.host);
     if (u.pathname.startsWith("/file/")) {
       res.setHeader("content-type", "text/html; charset=utf-8");
-      return res.end(`<title>Webinario TUBERCULOSE.mp4 - Google Drive</title><script>
+      return res.end(`<title>Webinários do IIERibas - TUBERCULOSE - 2026/07/29 19:45 GMT-03:00 - Recording.mp4 - Google Drive</title><script>
         const base = "https://${HOST_PLAYER}/videoplayback?id=abc&sig=xyz";
         fetch(base + "&itag=137&mime=video%2Fmp4&clen=99999999&range=0-999&rn=1", { mode: "no-cors" });
         fetch(base + "&itag=140&mime=audio%2Fmp4&clen=${TAMANHO}&range=0-999&rn=2&rbuf=0", { mode: "no-cors" });
@@ -73,16 +82,15 @@ test("captura o áudio do player e baixa o arquivo completo", async () => {
     await ctx.addCookies([{ name: "DRIVE_STREAM", value: "sessao123", domain: ".drive.google.com", path: "/" }]);
     const pagina = await ctx.newPage();
     await pagina.goto("https://drive.google.com/file/d/1mkz/view");
-    await pagina.waitForTimeout(1500);
-
     const tabId = await sw.evaluate(async () => (await chrome.tabs.query({ url: "*://drive.google.com/*" }))[0].id);
+    await ate(() => sw.evaluate(async (k) => Boolean((await chrome.storage.session.get(k))[k]), "tab:" + tabId));
     const popup = await ctx.newPage();
     await popup.goto(`chrome-extension://${extId}/popup.html?tab=${tabId}`);
     await popup.waitForSelector("#baixar");
-    assert.match(await popup.innerText("#conteudo"), /Webinario TUBERCULOSE\.m4a/);
+    assert.match(await popup.innerText("#conteudo"), /Webinários do IIERibas - TUBERCULOSE/);
 
     await popup.click("#baixar");
-    await popup.waitForTimeout(2000);
+    await ate(async () => (await sw.evaluate(() => chrome.downloads.search({ state: "complete" }))).length > 0);
     const downloads = await sw.evaluate(() => chrome.downloads.search({}));
     assert.equal(downloads.length, 1);
     assert.equal(downloads[0].state, "complete");
