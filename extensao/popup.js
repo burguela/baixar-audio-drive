@@ -44,9 +44,17 @@ async function abaAtual() {
   return aba;
 }
 
-// Acompanha o download enquanto o popup estiver aberto.
-function acompanhar(id, botao, barra, legenda, cartao) {
-  const timer = setInterval(async () => {
+// Mostra o progresso do download enquanto o popup estiver aberto. O popup fecha
+// quando você clica fora, mas o download continua no Chrome; ao abrir de novo,
+// mostrar() chama esta função outra vez e o progresso reaparece.
+function acompanhar(id, botao, cartao) {
+  botao.disabled = true;
+  rotulo(botao, "download", "Baixando…");
+  const barra = el("div", { className: "progresso indeterminado" }, el("div"));
+  const legenda = el("div", { className: "legenda", textContent: "Iniciando…" });
+  botao.after(barra, legenda);
+
+  const atualizar = async () => {
     const [d] = await chrome.downloads.search({ id });
     if (!d) return;
     if (d.state === "complete") {
@@ -65,13 +73,16 @@ function acompanhar(id, botao, barra, legenda, cartao) {
       legenda.remove();
       botao.disabled = false;
       rotulo(botao, "download", "Tentar de novo");
+      cartao.querySelector(".aviso")?.remove();
       cartao.append(aviso(`O download falhou (${d.error}). Recarregue a página do vídeo, dê play e tente outra vez.`));
     } else if (d.totalBytes > 0) {
       barra.classList.remove("indeterminado");
       barra.firstChild.style.width = Math.round((d.bytesReceived / d.totalBytes) * 100) + "%";
       legenda.textContent = `${tamanhoLegivel(d.bytesReceived)} de ${tamanhoLegivel(d.totalBytes)}`;
     }
-  }, 400);
+  };
+  const timer = setInterval(atualizar, 400);
+  atualizar();
 }
 
 async function baixar(aba, stream, botao, cartao) {
@@ -85,13 +96,16 @@ async function baixar(aba, stream, botao, cartao) {
       if (/invalid filename/i.test(e.message)) return pedir(nomeSemAcentos(nome));
       throw e;
     });
-    const { downloadsNossos = {} } = await chrome.storage.session.get("downloadsNossos");
+    // Guarda qual download é desta aba, para retomar o acompanhamento depois.
+    const k = "tab:" + aba.id;
+    const { downloadsNossos = {}, [k]: dados = { streams: {} } } = await chrome.storage.session.get(["downloadsNossos", k]);
     downloadsNossos[id] = aba.id;
-    await chrome.storage.session.set({ downloadsNossos });
-    const barra = el("div", { className: "progresso indeterminado" }, el("div"));
-    const legenda = el("div", { className: "legenda", textContent: "Iniciando…" });
-    botao.after(barra, legenda);
-    acompanhar(id, botao, barra, legenda, cartao);
+    dados.ultimoDownload = id;
+    delete dados.erro;
+    await chrome.storage.session.set({ downloadsNossos, [k]: dados });
+    chrome.action.setBadgeBackgroundColor({ tabId: aba.id, color: "#4f46e5" });
+    chrome.action.setBadgeText({ tabId: aba.id, text: "↓" });
+    acompanhar(id, botao, cartao);
   } catch (e) {
     botao.disabled = false;
     rotulo(botao, "download", "Baixar áudio");
@@ -167,7 +181,13 @@ function telaAudio(aba, streams, erroAnterior) {
   if (erroAnterior) {
     cartao.append(aviso(`O último download falhou (${erroAnterior}). Recarregue a página do vídeo, dê play e tente outra vez.`));
   }
-  return cartao;
+  return { cartao, botao };
+}
+
+// Se já existe um download desta aba em andamento (ou concluído), retoma a exibição.
+async function retomar(id, botao, cartao) {
+  const [d] = await chrome.downloads.search({ id });
+  if (d && (d.state === "in_progress" || (d.state === "complete" && d.exists))) acompanhar(id, botao, cartao);
 }
 
 async function mostrar() {
@@ -177,7 +197,13 @@ async function mostrar() {
   const dados = aba ? (await chrome.storage.session.get(k))[k] : null;
   const streams = Object.values(dados?.streams || {}).sort((a, b) => (b.tamanho || 0) - (a.tamanho || 0));
 
-  conteudo.replaceChildren(streams.length ? telaAudio(aba, streams, dados.erro) : telaVazia(noDrive, dados));
+  if (!streams.length) {
+    conteudo.replaceChildren(telaVazia(noDrive, dados));
+    return;
+  }
+  const { cartao, botao } = telaAudio(aba, streams, dados.erro);
+  conteudo.replaceChildren(cartao);
+  if (dados.ultimoDownload) retomar(dados.ultimoDownload, botao, cartao);
 }
 
 mostrar();

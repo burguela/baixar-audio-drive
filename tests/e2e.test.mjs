@@ -59,7 +59,19 @@ function servidorFalso() {
         corpo = audio.subarray(a, b + 1);
       }
       res.setHeader("content-type", "audio/mp4");
-      return res.end(corpo);
+      res.setHeader("content-length", corpo.length);
+      if (r) return res.end(corpo);
+      // O arquivo completo sai devagar (~2 s), para dar tempo de fechar e reabrir o popup.
+      let enviado = 0;
+      const timer = setInterval(() => {
+        res.write(corpo.subarray(enviado, enviado + 175_000));
+        enviado += 175_000;
+        if (enviado >= corpo.length) {
+          clearInterval(timer);
+          res.end();
+        }
+      }, 100);
+      return;
     }
     res.statusCode = 404;
     res.end();
@@ -102,7 +114,17 @@ test("captura o áudio do player e baixa o arquivo completo", async () => {
     assert.match(await popup.innerText("#conteudo"), /Webinários do IIERibas - TUBERCULOSE/);
 
     await popup.click("#baixar");
+    await popup.waitForSelector(".progresso");
+
+    // O popup fecha quando se clica fora. Ao reabrir, o progresso tem que voltar.
+    await popup.close();
+    const reaberto = await ctx.newPage();
+    await reaberto.goto(`chrome-extension://${extId}/popup.html?tab=${tabId}`);
+    await reaberto.waitForSelector(".progresso", { timeout: 3000 });
+    assert.match(await reaberto.innerText("#baixar"), /Baixando/);
+
     await ate(async () => (await sw.evaluate(() => chrome.downloads.search({ state: "complete" }))).length > 0);
+    await reaberto.waitForFunction(() => document.querySelector("#baixar").textContent.includes("Áudio baixado"));
     const downloads = await sw.evaluate(() => chrome.downloads.search({}));
     assert.equal(downloads.length, 1);
     assert.equal(downloads[0].state, "complete");

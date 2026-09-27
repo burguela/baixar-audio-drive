@@ -58,11 +58,17 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Guarda falhas de download para o popup mostrar na próxima vez que abrir.
+// Também marca o ícone com ✓ quando o download termina, mesmo com o popup fechado.
 chrome.downloads.onChanged.addListener(async (delta) => {
-  if (!delta.error) return;
+  if (!delta.error && delta.state?.current !== "complete") return;
   const { downloadsNossos = {} } = await chrome.storage.session.get("downloadsNossos");
   const tabId = downloadsNossos[delta.id];
   if (tabId === undefined) return;
+  if (!delta.error) {
+    chrome.action.setBadgeBackgroundColor({ tabId, color: "#0f9d58" });
+    chrome.action.setBadgeText({ tabId, text: "✓" });
+    return;
+  }
   const k = chave(tabId);
   const atual = (await chrome.storage.session.get(k))[k];
   if (!atual) return;
