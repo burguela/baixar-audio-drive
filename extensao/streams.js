@@ -3,6 +3,22 @@
 // Parâmetros que fazem o servidor devolver só um pedaço do arquivo.
 const PARAMS_DE_PEDACO = ["range", "rn", "rbuf", "ump", "srfvp"];
 
+// itags de áudio conhecidos, para quando a URL não traz o parâmetro "mime".
+const ITAGS_AUDIO = {
+  139: "audio/mp4", 140: "audio/mp4", 141: "audio/mp4", 599: "audio/mp4",
+  171: "audio/webm", 249: "audio/webm", 250: "audio/webm", 251: "audio/webm", 600: "audio/webm",
+};
+
+// Hosts de onde o player do Drive carrega a página, o iframe do player e os streams.
+// A extensão precisa de permissão tanto no endereço da requisição quanto em quem a fez.
+export const HOSTS = [
+  "*://*.google.com/*",
+  "*://*.googlevideo.com/*",
+  "*://*.googleusercontent.com/*",
+  "*://*.googleapis.com/*",
+  "*://*.youtube.com/*",
+];
+
 const EXTENSOES = { "audio/mp4": ".m4a", "audio/webm": ".webm", "audio/mpeg": ".mp3", "audio/ogg": ".ogg" };
 
 export function urlCompleta(original) {
@@ -13,15 +29,18 @@ export function urlCompleta(original) {
 }
 
 // Devolve os dados do stream se a URL for uma requisição de áudio do player; senão null.
-export function lerStream(original) {
-  let url;
+export function ehVideoplayback(original) {
   try {
-    url = new URL(original);
+    return new URL(original).pathname.includes("videoplayback");
   } catch {
-    return null;
+    return false;
   }
-  if (!url.pathname.includes("videoplayback")) return null;
-  const mime = url.searchParams.get("mime") || "";
+}
+
+export function lerStream(original) {
+  if (!ehVideoplayback(original)) return null;
+  const url = new URL(original);
+  const mime = url.searchParams.get("mime") || ITAGS_AUDIO[url.searchParams.get("itag")] || "";
   if (!mime.startsWith("audio/")) return null;
   return {
     itag: url.searchParams.get("itag") || mime,
@@ -52,4 +71,14 @@ export function tamanhoLegivel(bytes) {
 // Esta versão troca "Webinários" por "Webinarios" e o que sobrar fora do ASCII por "_".
 export function nomeSemAcentos(nome) {
   return nome.normalize("NFD").replace(/\p{M}/gu, "").replace(/[^\x20-\x7e]/g, "_");
+}
+
+// Id do arquivo do Drive na URL da aba (/file/d/<id>/view ou ?id=<id>), ou null.
+export function idDoArquivo(original) {
+  try {
+    const url = new URL(original);
+    return url.pathname.match(/\/d\/([\w-]+)/)?.[1] || url.searchParams.get("id");
+  } catch {
+    return null;
+  }
 }

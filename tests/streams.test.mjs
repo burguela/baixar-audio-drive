@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lerStream, urlCompleta, nomeDoArquivo, nomeSemAcentos, tamanhoLegivel } from "../extensao/streams.js";
+import { lerStream, urlCompleta, nomeDoArquivo, nomeSemAcentos, tamanhoLegivel, idDoArquivo } from "../extensao/streams.js";
 
 const BASE = "https://r1---sn-abc.c.drive.google.com/videoplayback?id=x&sig=y";
 
@@ -40,4 +40,16 @@ test("tamanho legível", () => {
 test("nome sem acentos para sistemas que recusam", () => {
   assert.equal(nomeSemAcentos("Webinários do IIERibas - Ações.m4a"), "Webinarios do IIERibas - Acoes.m4a");
   assert.equal(nomeSemAcentos("Aula 🎧.m4a"), "Aula __.m4a");
+});
+
+test("reconhece áudio pelo itag quando a URL não tem mime", () => {
+  assert.equal(lerStream(`${BASE}&itag=140&clen=10`).mime, "audio/mp4");
+  assert.equal(lerStream(`${BASE}&itag=251`).mime, "audio/webm");
+  assert.equal(lerStream(`${BASE}&itag=137`), null);
+});
+
+test("id do arquivo na URL da aba", () => {
+  assert.equal(idDoArquivo("https://drive.google.com/file/d/1mkzlzuASv0HVviU1JzSl6s7uuW6xemFN/view?t=12"), "1mkzlzuASv0HVviU1JzSl6s7uuW6xemFN");
+  assert.equal(idDoArquivo("https://drive.google.com/open?id=abc"), "abc");
+  assert.equal(idDoArquivo("https://example.com/"), null);
 });

@@ -115,6 +115,8 @@ button { font: inherit; cursor: pointer; border: 0; }
 .passos li.atual span { background: var(--acento); border-color: var(--acento); color: #fff; }
 .passos li.feito span { background: var(--ok); border-color: var(--ok); color: #fff; }
 
+.diag { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--borda); font-size: 11px; color: var(--suave); text-align: left; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::after { animation: none !important; transition: none !important; }
 }

@@ -14,6 +14,7 @@ const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const EXT = path.resolve(AQUI, "../extensao");
 const TAMANHO = 3_500_000;
 const HOST_PLAYER = "r1---sn-test.c.drive.google.com";
+const HOST_IFRAME = "youtube.googleapis.com";
 
 // Espera a condição ficar verdadeira (até 15 s), em vez de pausas fixas.
 async function ate(condicao) {
@@ -32,9 +33,18 @@ function servidorFalso() {
   const cert = { key: fs.readFileSync(path.join(AQUI, "cert-teste.key")), cert: fs.readFileSync(path.join(AQUI, "cert-teste.pem")) };
   const server = https.createServer(cert, (req, res) => {
     const u = new URL(req.url, "https://" + req.headers.host);
+    // Como no Drive real: a página carrega o player num iframe de outro domínio
+    // (youtube.googleapis.com), e é o iframe que pede os streams. Depois o Drive
+    // muda a URL da aba sozinho.
     if (u.pathname.startsWith("/file/")) {
       res.setHeader("content-type", "text/html; charset=utf-8");
-      return res.end(`<title>Webinários do IIERibas - TUBERCULOSE - 2026/07/29 19:45 GMT-03:00 - Recording.mp4 - Google Drive</title><script>
+      return res.end(`<title>Webinários do IIERibas - TUBERCULOSE - 2026/07/29 19:45 GMT-03:00 - Recording.mp4 - Google Drive</title>
+        <iframe src="https://${HOST_IFRAME}/embed/?ps=docs"></iframe>
+        <script>setTimeout(() => history.replaceState(null, "", location.pathname + "?t=12"), 800);</script>`);
+    }
+    if (u.pathname.startsWith("/embed")) {
+      res.setHeader("content-type", "text/html; charset=utf-8");
+      return res.end(`<script>
         const base = "https://${HOST_PLAYER}/videoplayback?id=abc&sig=xyz";
         fetch(base + "&itag=137&mime=video%2Fmp4&clen=99999999&range=0-999&rn=1", { mode: "no-cors" });
         fetch(base + "&itag=140&mime=audio%2Fmp4&clen=${TAMANHO}&range=0-999&rn=2&rbuf=0", { mode: "no-cors" });
@@ -69,7 +79,7 @@ test("captura o áudio do player e baixa o arquivo completo", async () => {
       "--headless=new",
       `--disable-extensions-except=${EXT}`,
       `--load-extension=${EXT}`,
-      `--host-resolver-rules=MAP drive.google.com 127.0.0.1:${porta}, MAP ${HOST_PLAYER} 127.0.0.1:${porta}`,
+      `--host-resolver-rules=MAP drive.google.com 127.0.0.1:${porta}, MAP ${HOST_PLAYER} 127.0.0.1:${porta}, MAP ${HOST_IFRAME} 127.0.0.1:${porta}`,
       "--no-proxy-server",
       "--ignore-certificate-errors",
     ],
@@ -83,7 +93,9 @@ test("captura o áudio do player e baixa o arquivo completo", async () => {
     const pagina = await ctx.newPage();
     await pagina.goto("https://drive.google.com/file/d/1mkz/view");
     const tabId = await sw.evaluate(async () => (await chrome.tabs.query({ url: "*://drive.google.com/*" }))[0].id);
-    await ate(() => sw.evaluate(async (k) => Boolean((await chrome.storage.session.get(k))[k]), "tab:" + tabId));
+    await ate(() => sw.evaluate(async (k) => Boolean((await chrome.storage.session.get(k))[k]?.streams?.[140]), "tab:" + tabId));
+    await pagina.waitForURL(/\?t=12/);
+    await pagina.waitForTimeout(300);
     const popup = await ctx.newPage();
     await popup.goto(`chrome-extension://${extId}/popup.html?tab=${tabId}`);
     await popup.waitForSelector("#baixar");

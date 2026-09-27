@@ -99,7 +99,7 @@ async function baixar(aba, stream, botao, cartao) {
   }
 }
 
-function telaVazia(noDrive) {
+function telaVazia(noDrive, dados) {
   const passos = [
     "Abra o vídeo no Google Drive",
     "Dê play por alguns segundos",
@@ -111,8 +111,18 @@ function telaVazia(noDrive) {
     el("h2", { textContent: noDrive ? "Dê play no vídeo" : "Abra um vídeo do Drive" }),
     el("ol", { className: "passos" }, ...passos.map((texto, i) =>
       el("li", { className: i < atual ? "feito" : i === atual ? "atual" : "" },
-        el("span", { textContent: i < atual ? "✓" : String(i + 1) }), texto)))
+        el("span", { textContent: i < atual ? "✓" : String(i + 1) }), texto))),
+    noDrive ? diagnostico(dados) : null
   );
+}
+
+// Linha discreta que ajuda a entender por que o áudio não apareceu.
+function diagnostico(dados) {
+  const u = dados?.ultimoVisto;
+  const texto = dados?.vistos
+    ? `A extensão viu ${dados.vistos} requisições do player, mas nenhuma de áudio (última: ${u.metodo} ${u.host}, mime=${u.mime || "?"}).`
+    : "A extensão ainda não viu nenhuma requisição do player nesta aba.";
+  return el("p", { className: "diag", textContent: texto });
 }
 
 function telaAudio(aba, streams, erroAnterior) {
@@ -167,7 +177,7 @@ async function mostrar() {
   const dados = aba ? (await chrome.storage.session.get(k))[k] : null;
   const streams = Object.values(dados?.streams || {}).sort((a, b) => (b.tamanho || 0) - (a.tamanho || 0));
 
-  conteudo.replaceChildren(streams.length ? telaAudio(aba, streams, dados.erro) : telaVazia(noDrive));
+  conteudo.replaceChildren(streams.length ? telaAudio(aba, streams, dados.erro) : telaVazia(noDrive, dados));
 }
 
 mostrar();
